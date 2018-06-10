@@ -13,6 +13,8 @@ import time
 
 from InstagramAPI import InstagramAPI
 
+from config import Config
+
 
 class Instagram:
     version = '0.1.0a'
@@ -44,8 +46,32 @@ class Instagram:
             else:
                 return print('User with such a nickname does not exist.')
 
+        self.api.follow(user_id)
+        status = self.api.LastJson['friendship_status']
+        data = self.find_info_about_user(user_id=user_id)['user']
+
+        print('####################################################\n')
+        print('User: {username} [{user_id}]{blocking}{followed_by}{following}{is_private}'.format(
+            username=username,
+            user_id=user_id,
+            blocking=('\nThis user has blocked you' if status['blocking'] else ''),
+            followed_by=('\nFollowed: OK' if status['followed_by'] else '\nFollowed: ×'),
+            following=('\nFollowing: OK' if status['following'] else '\nFollowing: ×'),
+            is_private=('\nPrivate account: YES' if status['is_private'] else '\nPrivate account: NO')
+        ))
+        print('\n\tINFO:{full_name}{posts}{followers}{following}{image}'.format(
+            full_name='\nFull Name: %s' % data['full_name'],
+            posts='\nPosts: %s' % data['media_count'],
+            followers='\nFollowers: %s' % data['follower_count'],
+            following='\nFollowings: %s' % data['following_count'],
+            image='\nImage: %s' % (data['hd_profile_pic_url_info']['url'] if 'hd_profile_pic_url_info'
+                                                                             '' in data else None),
+
+        ))
+        print('\n####################################################')
+
         if self.api.getUserFeed(user_id):
-            media_count = 0
+            media_count = data['media_count']
             sum_likes = 0
             now_count = 0
             max_id = ''
@@ -66,7 +92,8 @@ class Instagram:
                 max_id = 'end' if 'next_max_id' not in media else media['next_max_id']
 
                 media = media['items']
-                media_count += len(media)
+
+                # media_count += len(media)
 
                 self.log(f'Total media count: {media_count}')
 
@@ -110,6 +137,16 @@ class Instagram:
         else:
             print('Unable to get user\'s feed.')
 
+    def find_info_about_user(self, username=None, user_id=None):
+        if not user_id:
+            if username:
+                user_id, username = self.find_user(username)
+            else:
+                return print('User with such a nickname does not exist.')
+
+        self.api.getUsernameInfo(user_id)
+        return self.api.LastJson
+
     @staticmethod
     def log(s):
         print(s)
@@ -121,8 +158,7 @@ class Instagram:
 
 if __name__ == '__main__':
     client = Instagram(time_flip_posts=1.25, time_wait_unlock=1800)
-    client.auth('username', 'password')
+    client.auth(Config.username, Config.password)
+
     s_username = input('Input username: ')
-    s_user_id, s_username = client.find_user(s_username)
-    print('Nick - {} [{}]'.format(s_username, s_user_id))
-    client.like_feed_user(s_username, -1)
+    client.like_feed_user(username=s_username, max_likes=-1)
